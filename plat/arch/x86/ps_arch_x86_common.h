@@ -52,21 +52,21 @@ typedef u16_t localityid_t;
  * 1 otherwise (*target == old -> *target = updated)
  */
 static inline int
-ps_cas(unsigned long *target, unsigned long old, unsigned long updated)
+ps_casv(void *target, unsigned long old, unsigned long updated)
 {
         char z;
         __asm__ __volatile__("lock " PS_CAS_STR
-                             : "+m" (*target), "=a" (z)
+                             : "+m" (*(unsigned long *)target), "=a" (z)
                              : "q"  (updated), "a"  (old)
                              : "memory", "cc");
         return (int)z;
 }
 
 static inline long
-ps_faa(unsigned long *target, long inc)
+ps_faav(void *target, long inc)
 {
         __asm__ __volatile__("lock " PS_FAA_STR
-                             : "+m" (*target), "+q" (inc)
+                             : "+m" (*(unsigned long *)target), "+q" (inc)
                              : : "memory", "cc");
         return inc;
 }
@@ -78,31 +78,36 @@ ps_mem_fence(void)
 #define ps_load(addr) (*(volatile __typeof__(*addr) *)(addr))
 #define ps_store(addr, val) ((*(volatile __typeof__(*addr) *)(addr)) = val)
 
+#define ps_cas(target, old, updated) ps_casv((void *)target, old, updated)
+#define ps_faa(target, inc)          ps_faav((void *)target, inc)
+
 /*
  * Only atomic on a uni-processor, so not for cross-core coordination.
  * Faster on a multiprocessor when used to synchronize between threads
  * on a single core by avoiding locking.
  */
 static inline int
-ps_upcas(unsigned long *target, unsigned long old, unsigned long updated)
+ps_upcasv(void *target, unsigned long old, unsigned long updated)
 {
         char z;
         __asm__ __volatile__(PS_CAS_STR
-                             : "+m" (*target), "=a" (z)
+                             : "+m" (*(unsigned long *)target), "=a" (z)
                              : "q"  (updated), "a"  (old)
                              : "memory", "cc");
         return (int)z;
 }
 
 static inline long
-ps_upfaa(unsigned long *target, long inc)
+ps_upfaav(void *target, long inc)
 {
         __asm__ __volatile__(PS_FAA_STR
-                             : "+m" (*target), "+q" (inc)
+                             : "+m" (*(unsigned long *)target), "+q" (inc)
                              : : "memory", "cc");
         return inc;
 }
 
+#define ps_upcas(target, old, updated) ps_upcasv((void *)target, old, updated)
+#define ps_upfaa(target, inc)          ps_upfaav((void *)target, inc)
 
 /*
  * FIXME: this is truly an affront to humanity for now, but it is a
